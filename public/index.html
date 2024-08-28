@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Bill Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        div {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Phone Bill Calculator</h1>
+
+    <div>
+        <label for="price-plan">Select Price Plan:</label>
+        <select id="price-plan">
+            <option value="">Select a plan</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="actions">Actions (comma-separated):</label>
+        <input type="text" id="actions" placeholder="e.g. call, sms, call">
+    </div>
+    <div id="bill-result" style="display: none;">
+        <h2>Total Bill: R<span id="total-bill"></span></h2>
+    </div>
+    <div>
+        <button id="calculate-bill">Calculate Bill</button>
+    </div>
+
+
+    <h2>Create New Price Plan</h2>
+    <div>
+        <label for="new-plan-name">Name:</label>
+        <input type="text" id="new-plan-name">
+    </div>
+    <div>
+        <label for="new-call-cost">Call Cost:</label>
+        <input type="number" id="new-call-cost" step="0.01">
+    </div>
+    <div>
+        <label for="new-sms-cost">SMS Cost:</label>
+        <input type="number" id="new-sms-cost" step="0.01">
+    </div>
+    <div>
+        <button id="create-plan">Create Price Plan</button>
+    </div>
+
+    <h2>Delete Price Plan</h2>
+    <div>
+        <label for="delete-plan-id">ID:</label>
+        <input type="number" id="delete-plan-id">
+    </div>
+    <div>
+        <button id="delete-plan">Delete Price Plan</button>
+    </div>
+
+    <h2>Available Price Plans</h2>
+    <table id="price-plans-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Call Cost</th>
+                <th>SMS Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const pricePlanSelect = document.getElementById('price-plan');
+            const actionsInput = document.getElementById('actions');
+            const calculateBillButton = document.getElementById('calculate-bill');
+            const billResult = document.getElementById('bill-result');
+            const totalBillSpan = document.getElementById('total-bill');
+            const createPlanButton = document.getElementById('create-plan');
+            const deletePlanButton = document.getElementById('delete-plan');
+            const pricePlansTableBody = document.querySelector('#price-plans-table tbody');
+            const newPlanName = document.getElementById('new-plan-name');
+            const newCallCost = document.getElementById('new-call-cost');
+            const newSmsCost = document.getElementById('new-sms-cost');
+            const deletePlanId = document.getElementById('delete-plan-id');
+
+            function fetchPricePlans() {
+                console.log('Fetching price plans...');
+                fetch('http://localhost:4011/api/price_plans/')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Price plans fetched:', data);
+                        pricePlanSelect.innerHTML = '<option value="">Select a plan</option>';
+                        pricePlansTableBody.innerHTML = '';
+                        data.forEach(plan => {
+                            const option = document.createElement('option');
+                            option.value = plan.plan_name;
+                            option.textContent = plan.plan_name;
+                            pricePlanSelect.appendChild(option);
+
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${plan.id}</td>
+                                <td>${plan.plan_name}</td>
+                                <td>${plan.call_price}</td>
+                                <td>${plan.sms_price}</td>
+                            `;
+                            pricePlansTableBody.appendChild(row);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching price plans:', error);
+                    });
+            }
+            function calculateBill() {
+                console.log('Calculating bill...');
+                fetch('http://localhost:4011/api/phonebill/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        price_plan: pricePlanSelect.value,
+                        actions: actionsInput.value
+                    })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Bill calculated:', data);
+
+                        // Check if data.total is a string with "R" prefix and extract the number
+                        if (typeof data.total === 'string' && data.total.startsWith('R')) {
+                            // Extract the number part from the string and parse it
+                            const totalAmount = parseFloat(data.total.replace('R', ''));
+                            if (!isNaN(totalAmount)) {
+                                totalBillSpan.textContent = totalAmount.toFixed(2);
+                            } else {
+                                console.error('Error parsing total amount:', data);
+                                totalBillSpan.textContent = 'Error calculating bill';
+                            }
+                        } else {
+                            console.error('Unexpected data format:', data);
+                            totalBillSpan.textContent = 'Error calculating bill';
+                        }
+
+                        billResult.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Error calculating bill:', error);
+                        totalBillSpan.textContent = 'Error calculating bill';
+                        billResult.style.display = 'block';
+                    });
+            }
+
+            function createPricePlan() {
+                console.log('Creating price plan...');
+                fetch('http://localhost:4011/api/price_plan/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: newPlanName.value,
+                        call_cost: parseFloat(newCallCost.value),
+                        sms_cost: parseFloat(newSmsCost.value)
+                    })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(() => {
+                        console.log('Price plan created');
+                        fetchPricePlans();
+                        newPlanName.value = '';
+                        newCallCost.value = '';
+                        newSmsCost.value = '';
+                    })
+                    .catch(error => {
+                        console.error('Error creating price plan:', error);
+                    });
+            }
+
+            function deletePricePlan() {
+                console.log('Deleting price plan...');
+                fetch('http://localhost:4011/api/price_plan/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id: parseInt(deletePlanId.value, 10)
+                    })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(() => {
+                        console.log('Price plan deleted');
+                        fetchPricePlans();
+                        deletePlanId.value = '';
+                    })
+                    .catch(error => {
+                        console.error('Error deleting price plan:', error);
+                    });
+            }
+
+            fetchPricePlans();
+
+            calculateBillButton.addEventListener('click', calculateBill);
+            createPlanButton.addEventListener('click', createPricePlan);
+            deletePlanButton.addEventListener('click', deletePricePlan);
+        });
+    </script>
+</body>
+
+</html>
