@@ -1,0 +1,1 @@
+[![Node.js CI](https://github.com/lindokuhlentshangase/total_phone-bill_price_plans--with_sqlite-/actions/workflows/node.js.yml/badge.svg)](https://github.com/lindokuhlentshangase/total_phone-bill_price_plans--with_sqlite-/actions/workflows/node.js.yml)
